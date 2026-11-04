@@ -45,6 +45,7 @@ type Client struct {
 	baseURL   string
 	apiToken  string
 	accountID string
+	legacyAPI bool
 	http      *http.Client
 	ownsHTTP  bool
 	prompt    AuthCodePrompt
@@ -101,8 +102,28 @@ func (c *Client) Close() error {
 }
 
 // GetSecret returns the secret record for id as JSON.
-// An empty id requests /secret/{accountId}/get with no asset segment.
+// An empty id resolves the assigned secret ID from the API token metadata.
 func (c *Client) GetSecret(ctx context.Context, id string) (string, error) {
+	if id == "" {
+		body, err := c.GetToken(ctx, c.apiToken)
+		if err != nil {
+			return "", err
+		}
+		var token struct {
+			Snake string `json:"secret_id"`
+			Camel string `json:"secretId"`
+		}
+		if err := json.Unmarshal([]byte(body), &token); err != nil {
+			return "", trustErr("invalid assigned token metadata")
+		}
+		id = token.Snake
+		if id == "" {
+			id = token.Camel
+		}
+		if id == "" {
+			return "", trustErr("API token is not assigned to a secret")
+		}
+	}
 	return c.do(ctx, "secret", "get", id, mediaJSON, true)
 }
 
@@ -114,16 +135,25 @@ func (c *Client) FetchSecret(ctx context.Context, id string) (string, error) {
 
 // GetCertificate returns the certificate record for id as JSON.
 func (c *Client) GetCertificate(ctx context.Context, id string) (string, error) {
+	if id == "" {
+		id = c.apiToken
+	}
 	return c.do(ctx, "cert", "get", id, mediaJSON, true)
 }
 
 // FetchCertificate returns the certificate PEM.
 func (c *Client) FetchCertificate(ctx context.Context, id string) (string, error) {
+	if id == "" {
+		id = c.apiToken
+	}
 	return c.do(ctx, "cert", "fetch", id, mediaText, true)
 }
 
 // FetchCertificateBundle returns the certificate bundle (leaf plus private key).
 func (c *Client) FetchCertificateBundle(ctx context.Context, id string) (string, error) {
+	if id == "" {
+		id = c.apiToken
+	}
 	return c.do(ctx, "cert", "fetch-bundle", id, mediaText, true)
 }
 
@@ -142,6 +172,7 @@ func (c *Client) do(ctx context.Context, resource, action, id, media string, all
 		return "", wrapErr(err.Error(), err)
 	}
 	req.Header.Set(headerAPIToken, c.apiToken)
+	req.Header.Set("User-Agent", "CertLocker-Trust-Go/1.0.4")
 	req.Header.Set("Content-Type", media)
 	req.Header.Set("Accept", media)
 	if code := c.currentAccessCode(); code != "" {
@@ -185,7 +216,11 @@ func (c *Client) currentAccessCode() string {
 
 func (c *Client) endpoint(resource, action, id string) string {
 	base := strings.TrimRight(c.baseURL, "/")
-	path := apiPrefix + "/" + resource + "/" + url.PathEscape(c.accountID) + "/" + action
+	path := apiPrefix + "/" + resource + "/"
+	if !c.legacyAPI {
+		path += url.PathEscape(c.accountID) + "/"
+	}
+	path += action
 	if id != "" {
 		path += "/" + url.PathEscape(id)
 	}

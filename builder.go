@@ -24,6 +24,7 @@ type Builder struct {
 	apiToken  string
 	apiTokErr error
 	accountID string
+	legacyAPI bool
 	acctErr   error
 	audience  string
 	audErr    error
@@ -50,6 +51,13 @@ type Builder struct {
 // NewBuilder returns a builder with the default connect timeout.
 func NewBuilder() *Builder {
 	return &Builder{}
+}
+
+// LegacyAPI selects pre-account-ID Gateway routes. No automatic fallback occurs.
+// Enable this explicitly for older servers; account-scoped routes remain the default.
+func (b *Builder) LegacyAPI(legacy bool) *Builder {
+	b.legacyAPI = legacy
+	return b
 }
 
 // URL sets the Trust base URL. Surrounding whitespace is ignored.
@@ -292,7 +300,7 @@ func (b *Builder) Build(ctx context.Context) (*Client, error) {
 		}
 		return nil, errors.New("apiToken is required (or enable ambient OIDC with oidcAudience / preferAmbientOidc)")
 	}
-	if strings.TrimSpace(accountID) == "" {
+	if strings.TrimSpace(accountID) == "" && !b.legacyAPI {
 		if ownsHTTP {
 			httpClient.CloseIdleConnections()
 		}
@@ -302,6 +310,7 @@ func (b *Builder) Build(ctx context.Context) (*Client, error) {
 		baseURL:   b.rawURL,
 		apiToken:  apiToken,
 		accountID: accountID,
+		legacyAPI: b.legacyAPI,
 		http:      httpClient,
 		ownsHTTP:  ownsHTTP,
 		prompt:    b.prompt,

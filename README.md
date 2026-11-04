@@ -352,15 +352,15 @@ Pass an empty id to `FetchSecret` when the API token is assigned to one secret. 
 GET /rest/api/v1/secret/{accountId}/fetch
 ```
 
-`GetSecret`, certificate calls, and `GetToken` take the asset id. The Gateway routes for those calls include it.
+`GetSecret` takes a secret asset ID; an empty ID resolves the assigned secret through token metadata. Certificate calls take a **CERTIFICATE access-token ID**, not a certificate record ID; omit the ID to use the configured API token. `GetToken` takes a token ID.
 
 | Call | Route | Body |
 | --- | --- | --- |
 | `GetSecret` | `GET /rest/api/v1/secret/{accountId}/get/{secretId}` | JSON secret record |
 | `FetchSecret` | `GET /rest/api/v1/secret/{accountId}/fetch[/{secretId}]` | secret contents |
-| `GetCertificate` | `GET /rest/api/v1/cert/{accountId}/get/{certificateId}` | JSON certificate record |
-| `FetchCertificate` | `GET /rest/api/v1/cert/{accountId}/fetch/{certificateId}` | leaf PEM |
-| `FetchCertificateBundle` | `GET /rest/api/v1/cert/{accountId}/fetch-bundle/{certificateId}` | PEM bundle |
+| `GetCertificate` | `GET /rest/api/v1/cert/{accountId}/get/{certificateTokenId}` | JSON certificate record |
+| `FetchCertificate` | `GET /rest/api/v1/cert/{accountId}/fetch/{certificateTokenId}` | leaf PEM |
+| `FetchCertificateBundle` | `GET /rest/api/v1/cert/{accountId}/fetch-bundle/{certificateTokenId}` | PEM bundle |
 | `GetToken` | `GET /rest/api/v1/token/{accountId}/get/{tokenId}` | JSON token record |
 
 Requests send `x-api-token`, plus `Content-Type` and `Accept` of `application/json` for get and `text/plain` for fetch.
@@ -378,7 +378,7 @@ defer service.Close()
 
 // Records.
 secret, err := service.GetSecret(ctx, "mvusgvkv5")
-certificate, err := service.GetCertificate(ctx, "certId")
+certificate, err := service.GetCertificate(ctx, "certificate-token-id")
 token, err := service.GetToken(ctx, "tokenId")
 
 // Contents.
@@ -388,8 +388,8 @@ password, err := service.GetSecretAsPassword(ctx, "v5q7pspif")
 credentials, err := service.GetSecretAsCredentials(ctx, "17bu1p62uq")
 privateKey, err := service.GetSecretAsPrivateKey(ctx, "k8m7c8pps")
 
-leaf, err := service.FetchCertificate(ctx, "certId")
-bundle, err := service.FetchCertificateBundle(ctx, "certId")
+leaf, err := service.FetchCertificate(ctx, "certificate-token-id")
+bundle, err := service.FetchCertificateBundle(ctx, "certificate-token-id")
 
 // Token assigned to one secret. Trust selects it, so no id is sent.
 assigned, err := service.FetchSecret(ctx, "")
@@ -401,8 +401,8 @@ Raw bodies, if you want to decode them yourself:
 ```go
 recordJSON, err := client.GetSecret(ctx, "mvusgvkv5")
 contents, err := client.FetchSecret(ctx, "mvusgvkv5")
-pemLeaf, err := client.FetchCertificate(ctx, "certId")
-pemBundle, err := client.FetchCertificateBundle(ctx, "certId")
+pemLeaf, err := client.FetchCertificate(ctx, "certificate-token-id")
+pemBundle, err := client.FetchCertificateBundle(ctx, "certificate-token-id")
 tokenJSON, err := client.GetToken(ctx, "tokenId")
 ```
 
@@ -555,3 +555,39 @@ go test ./...
 ## License
 
 Licensed under GNU General Public License v3.0. See [LICENSE](LICENSE).
+
+## Gateway rollout compatibility (2026-11-04)
+
+Legacy Gateway URLs and the new account-scoped URLs are both supported. Select
+the mode explicitly during rollout; authentication or authorization failures never
+trigger a retry against the other mode. The account must belong to the token.
+
+```go
+// Existing Gateway; AccountID is optional in explicit legacy mode.
+client, err := trustclient.NewBuilder().URL("https://trust.certlocker.io").
+    APIToken(token).LegacyAPI(true).Build(ctx)
+// New Gateway: retain the default and call AccountID(accountID).
+```
+
+Base URLs omit `/rest`. Certificate operations take a
+CERTIFICATE access-token ID, not a certificate asset ID; an empty argument uses
+the configured API token. Empty `GetSecret` resolves the assigned secret ID by
+reading token metadata first; a token with no assignment returns an error.
+
+Validation: `go test -race ./...` and `go vet ./...`. Local HTTP tests cover both
+route modes, assigned resources, encoded IDs, and permission errors without
+fallback. Live legacy secret metadata, exact payload and token metadata checks
+passed against a disposable fixture created by Ansible and revoked afterward.
+See [live evidence](docs/live-gateway-verification.json).
+
+For a read-only live smoke check, securely provide `CERTLOCKER_TOKEN`, then set
+`TRUST_URL` (without `/rest`), `CERTLOCKER_API_MODE=legacy` or `account`,
+`CERTLOCKER_ACCOUNT_ID` for account mode, `TRUST_SECRET_ID`, and
+`TRUST_EXPECTED_VALUE` to a disposable synthetic fixture. Run:
+
+```bash
+go run ./cmd/trust-smoke
+```
+
+It prints only pass/fail assertions. Account-scoped HTTP and OIDC contracts are
+locally tested; live new-Gateway/OIDC proof requires that deployment and identity.
