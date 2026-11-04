@@ -4,7 +4,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	trust "github.com/Darren-Certlocker/trust-go-client"
+	trust "github.com/certlocker-io/trust-go-client"
 	"os"
 	"time"
 )

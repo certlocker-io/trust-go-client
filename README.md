@@ -8,16 +8,16 @@ Go client for [Certlocker Trust](https://trust.certlocker.io). It reads secrets,
 
 The client uses only the Go standard library. It needs **Go 1.22** or later.
 
-Feature set matches [trust-java-client](https://github.com/Darren-Certlocker/trust-java-client) 1.0.4: `get` returns the asset record, `fetch` returns the asset contents.
+Gateway behavior follows [trust-java-client](https://github.com/certlocker-io/trust-java-client): `get` returns the asset record, `fetch` returns the asset contents.
 
 ## Install
 
 ```bash
-go get github.com/Darren-Certlocker/trust-go-client@latest
+go get github.com/certlocker-io/trust-go-client@latest
 ```
 
 ```go
-import "github.com/Darren-Certlocker/trust-go-client"
+import "github.com/certlocker-io/trust-go-client"
 ```
 
 The package name is `trustclient`.
@@ -25,9 +25,32 @@ The package name is `trustclient`.
 For a local checkout:
 
 ```bash
-go mod edit -replace github.com/Darren-Certlocker/trust-go-client=/path/to/trust-go-client
-go get github.com/Darren-Certlocker/trust-go-client@v0.0.0
+go mod edit -replace github.com/certlocker-io/trust-go-client=/path/to/trust-go-client
+go get github.com/certlocker-io/trust-go-client@v0.0.0
 ```
+
+## Run from source
+
+```bash
+git clone https://github.com/certlocker-io/trust-go-client.git
+cd trust-go-client
+go test -race ./...
+go vet ./...
+go build ./...
+```
+
+This repository is the Gateway SDK. For browser login/2FA and management
+create/update commands, use the Go CLI in
+[trust-cli](https://github.com/certlocker-io/trust-cli) with `go run ./cmd/trust`.
+For this SDK's read-only live smoke example, securely supply `CERTLOCKER_TOKEN`,
+`TRUST_URL` (without `/rest`), `CERTLOCKER_API_MODE`, `CERTLOCKER_ACCOUNT_ID` in
+account mode, and a disposable fixture's `TRUST_SECRET_ID`/`TRUST_EXPECTED_VALUE`,
+then run `go run ./cmd/trust-smoke`. The example emits assertion booleans only.
+
+[CI](https://github.com/certlocker-io/trust-go-client/actions/workflows/ci.yml)
+runs race tests/vet and cross-builds the smoke example for Linux, macOS and
+Windows on amd64/arm64. Source consumers import the organisation module path;
+no dependency on Darren's personal namespace remains.
 
 ## Features
 
@@ -49,7 +72,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/Darren-Certlocker/trust-go-client"
+    "github.com/certlocker-io/trust-go-client"
 )
 
 func main() {

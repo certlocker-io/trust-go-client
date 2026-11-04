@@ -1,3 +1,3 @@
-module github.com/Darren-Certlocker/trust-go-client
+module github.com/certlocker-io/trust-go-client
 
 go 1.22

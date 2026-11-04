@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Darren-Certlocker/trust-go-client"
+	"github.com/certlocker-io/trust-go-client"
 )
 
 func ExampleNewBuilder() {
