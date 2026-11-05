@@ -16,6 +16,10 @@ Gateway behavior follows [trust-java-client](https://github.com/certlocker-io/tr
 go get github.com/certlocker-io/trust-go-client@latest
 ```
 
+Each main or dev push also produces a source archive and SHA-256 checksum as a
+CI artifact, alongside the cross-platform smoke binaries. The archive can be
+unpacked locally and used with the local checkout instructions below.
+
 ```go
 import "github.com/certlocker-io/trust-go-client"
 ```
@@ -49,8 +53,7 @@ then run `go run ./cmd/trust-smoke`. The example emits assertion booleans only.
 
 [CI](https://github.com/certlocker-io/trust-go-client/actions/workflows/ci.yml)
 runs race tests/vet and cross-builds the smoke example for Linux, macOS and
-Windows on amd64/arm64. Source consumers import the organisation module path;
-no dependency on Darren's personal namespace remains.
+Windows on amd64/arm64. Source consumers import the organisation module path.
 
 ## Features
 
